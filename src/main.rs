@@ -21,13 +21,13 @@ const CHARSET: [char; 32] = [
 
 #[derive(Parser)]
 struct Args {
-    /// The address prefix to match
+    /// The address prefix to match (optional)
     #[arg(short, long)]
-    prefix: String,
+    prefix: Option<String>,
 
-    /// The address suffix to match (optional)
+    /// The address suffix to match
     #[arg(short, long)]
-    suffix: Option<String>,
+    suffix: String,
 
     /// Cpu cores to use (default: cpu_cores/2)
     #[arg(short, long)]
@@ -49,8 +49,8 @@ fn worker(prefix: String, suffix: String, counter: Arc<AtomicU64>, exit_flag: Ar
             Variant::Bech32,
         )
         .unwrap();
-        if nostr_pub.starts_with(&prefix) {
-            if suffix.is_empty() || nostr_pub.ends_with(&suffix) {
+        if nostr_pub.ends_with(&suffix) {
+            if prefix.is_empty() || nostr_pub.starts_with(&prefix) {
                 let data = secret_key.secret_bytes().to_base32();
                 let nostr_sec =
                     bech32::encode(NOSTR_BECH32_SECRET_KEY_PREFIX, data, Variant::Bech32).unwrap();
@@ -75,7 +75,7 @@ fn worker(prefix: String, suffix: String, counter: Arc<AtomicU64>, exit_flag: Ar
 fn main() {
     let args = Args::parse();
 
-    let ref prefix = args.prefix;
+    let ref prefix = args.prefix.unwrap_or_default();
     for c in prefix.chars() {
         if !CHARSET.contains(&c) {
             eprintln!("prefix {} contains invalid bech32 character: {}", prefix, c);
@@ -83,7 +83,7 @@ fn main() {
         }
     }
 
-    let ref suffix = args.suffix.unwrap_or_default();
+    let ref suffix = args.suffix;
     for c in suffix.chars() {
         if !CHARSET.contains(&c) {
             eprintln!("suffix {} contains invalid bech32 character: {}", suffix, c);
@@ -91,13 +91,13 @@ fn main() {
         }
     }
 
-    let suffix_len = suffix.len();
-    let difficulty = 32.0_f64.powi((prefix.len() + suffix_len) as i32);
+    let prefix_len = prefix.len();
+    let difficulty = 32.0_f64.powi((suffix.len() + prefix_len) as i32);
     let prefix = NOSTR_BECH32_PUBLIC_KEY_PREFIX.to_string() + "1" + prefix;
-    if suffix_len == 0 {
+    if prefix_len == 0 {
         print!(
-            "[#] Start searching with prefix {} (difficulty est.: {})",
-            prefix, difficulty
+            "[#] Start searching with suffix {} (difficulty est.: {})",
+            suffix, difficulty
         );
     } else {
         print!(
